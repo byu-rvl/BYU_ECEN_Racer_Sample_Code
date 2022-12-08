@@ -27,11 +27,11 @@ class YoloHelper:
         trace = True
         source = 'inference/images'
         webcam = False #TODO set to True
-        self.augment = 'store_true'
+        self.augment = False
         self.conf_thres = 0.25
-        self.iou_thres = 0.25 # 'object confidence threshold'
-        self.classes = '+' # 'filter by class: --class 0, or --class 0 2 3'
-        self.agnostic_nms = 'store_true' # class-agnostic NMS
+        self.iou_thres = 0.45 # 'object confidence threshold'
+        self.classes = None # 'filter by class: --class 0, or --class 0 2 3'
+        self.agnostic_nms = False # class-agnostic NMS
 
         print(type(device), device)
 
@@ -49,24 +49,12 @@ class YoloHelper:
         if self.half:
             self.model.half()  # to FP16
 
-        # Second-stage classifier
-        self.classify = False
-        if self.classify:
-            self.modelc = load_classifier(name='resnet101', n=2)  # initialize
-            self.modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
-
-        # Set Dataloader
-        vid_path, vid_writer = None, None
         if webcam:
-            view_img = check_imshow()
             cudnn.benchmark = True  # set True to speed up constant image size inference
-            dataset = LoadStreams(source, img_size=imgsz, stride=stride)
-        else:
-            dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
         # Get names and colors
-        names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
-        colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+        self.names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
+        self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.names]
 
         # Run inference
         if device.type != 'cpu':
@@ -74,7 +62,7 @@ class YoloHelper:
         old_img_w = old_img_h = imgsz
         old_img_b = 1
 
-        # Warmup
+        # Warmup    #TODO implement a warmup for the GPU.
         # if device.type != 'cpu' and (
         #         old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
         #     old_img_b = img.shape[0]
@@ -84,31 +72,74 @@ class YoloHelper:
         #         model(img, augment=opt.augment)[0]
 
     def runNpImage_anySize(self, frame):
-        img, ratio, (dw, dh) = letterbox(frame, (img_size, img_size))
-        img = np.reshape(img, (img.shape[2], img.shape[1], img.shape[0]))
-        return self.runNpImage_correctSize(img, frame)
+        """Run YOLO on normal image.
+            Input:
+                frame: np.array Normal np.array representation from image in OpenCV
 
-    def runNpImage_correctSize(self, img, origImage):
+            Return:
+                det: See runNPImage_correctSize function below for syntax.
+        """
+
+        img = letterbox(frame, (img_size, img_size))[0]
+        # Convert
+        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        img = np.ascontiguousarray(img)
+
         img = torch.from_numpy(img).to(self.device)
         img = img.half() if self.half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
 
+        return self.runNpImage_correctSize(img, frame)
+
+    def runNpImage_correctSize(self, img, origImage):
+        """ Run YOLO
+            Input:
+                img: np.array. Resized and reshaped image. See runNpImage_anySize function above.
+                origImage: np.array. Normal np.array representation from image in OpenCV
+
+            Returns:
+                det: A tensor of the items and locations of found items. In form:
+                            tensor([[top_x, top_y, bottom_x, bottom_y, confidence, label_number], repeat])
+                            where top_x, top_y, etc. are the corners of the bounding box for the labeled item.
+        """
+
+
+
         # Inference
         with torch.no_grad():  # Calculating gradients would cause a GPU memory leak
             pred = self.model(img, augment=self.augment)[0]
-
         # Apply NMS
-        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, classes=self.classes, agnostic=self.agnostic_nms)
+        det = non_max_suppression(pred, self.conf_thres, self.iou_thres, classes=self.classes, agnostic=self.agnostic_nms)[0]
 
-        # Apply Classifier
-        if self.classify:
-            pred = apply_classifier(pred, self.modelc, img, origImage)
+        if len(det):
+            # Rescale boxes from img_size to im0 size
+            det[:, :4] = scale_coords(img.shape[2:], det[:, :4], origImage.shape).round()
 
-        print(pred)
+        return det
 
+    def drawBBox(self, det, origImage, display=True):
+        """
+            Draws a bounding box on image
 
+            inputs:
+                det: The output from runNpImage_correctSize or runNpImage_anySize from above.
+                origImage: the image that det corresponds to. In normal np.array representation of OpenCV image.
+                display: boolean. Whether to display the image or not.
+            outputs:
+                bboxImage: image with bounding boxes drawn.
+        """
+        bboxImage = origImage.copy()
+        for *xyxy, conf, cls in reversed(det):
+            label = f'{self.names[int(cls)]} {conf:.2f}'
+            plot_one_box(xyxy, bboxImage, label=label, color=self.colors[int(cls)], line_thickness=1)
+
+        if display:
+            cv2.imshow("image", bboxImage)
+            cv2.waitKey(0)
+
+        return bboxImage
 
 
 if __name__ == "__main__":
@@ -118,4 +149,16 @@ if __name__ == "__main__":
     ret,frame = cam.read()
 
     helper = YoloHelper()
-    helper.runNpImage_anySize(frame)
+    time_here = []
+    for i in range(0, 1000):
+        start = time.time()
+        det = helper.runNpImage_anySize(frame)
+        # helper.drawBBox(det,frame,display=True)
+        end = time.time()
+        time_here.append(end-start)
+    time_here = np.array(time_here)
+    print("Stats:")
+    print("Median time:", np.median(time_here))
+    print("Mean time:", np.mean(time_here))
+    print("Max time:", np.max(time_here))
+    print("Min time:", np.min(time_here))
