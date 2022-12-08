@@ -1,10 +1,8 @@
 # created by Drew Sumsion to use yolov7: https://github.com/WongKinYiu/yolov7
 # I suggest you look at detect.py at that github address to see how they implement it.
 
-import argparse
 import glob
 import time
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -13,11 +11,10 @@ import torch.backends.cudnn as cudnn
 from numpy import random
 
 from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages, letterbox
-from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
+from utils.datasets import letterbox
+from utils.general import check_img_size, non_max_suppression, scale_coords
 from utils.plots import plot_one_box
-from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+from utils.torch_utils import select_device, TracedModel
 
 
 class YoloHelper:
@@ -56,15 +53,11 @@ class YoloHelper:
         # Run inference
         if device.type != 'cpu':
             self.model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(self.model.parameters())))  # run once
-        old_img_w = old_img_h = imgsz
-        old_img_b = 1
 
-        # Warmup
-        img = np.zeros((3,img_size, int(img_size * 3/4)))
-        if device.type != 'cpu' and (
-                old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
-            for i in range(3):
-                self.model(img, self.conf_thres, self.iou_thres, classes=self.classes, agnostic=self.agnostic_nms)[0]
+        # Warmup the GPU
+        img = np.zeros((1080,1920,3))
+        for i in range(0,3):
+            self.runNpImage_anySize(img)
 
     def runNpImage_anySize(self, frame):
         """Run YOLO on normal image.
@@ -85,6 +78,7 @@ class YoloHelper:
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
+
 
         return self.runNpImage_correctSize(img, frame)
 
@@ -143,8 +137,9 @@ if __name__ == "__main__":
     cam = cv2.VideoCapture(testImagePath)
     ret,frame = cam.read()
 
-    dataFiles = "/Users/drewsumsion/Downloads/archive/images/" #TODO change this to the path of the dataset desired.
+    dataFiles = "../archive/images/" #TODO change this to the path of the dataset desired.
     allFiles = list(glob.glob(dataFiles + "**.png"))
+    print("length of all files", len(allFiles))
 
     multipleImages = True
 
@@ -171,9 +166,9 @@ if __name__ == "__main__":
         time_here.append(end-start)
     time_here = np.array(time_here)
     print("Stats:")
-    print("Median time:", np.median(time_here), "seconds")
-    print("Mean time:", np.mean(time_here), "seconds")
-    print("Max time:", np.max(time_here), "seconds")
-    print("Min time:", np.min(time_here), "seconds")
+    print("Median time:", np.median(time_here), "seconds. Or fps:", 1/np.median(time_here))
+    print("Mean time:", np.mean(time_here), "seconds", 1/np.mean(time_here))
+    print("Max time:", np.max(time_here), "seconds", 1/np.max(time_here))
+    print("Min time:", np.min(time_here), "seconds", 1/np.min(time_here))
     print("Total images:", totalImages)
     print("Total images analyzed:", analyzed)
