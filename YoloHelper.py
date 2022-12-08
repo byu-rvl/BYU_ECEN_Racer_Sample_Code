@@ -2,6 +2,7 @@
 # I suggest you look at detect.py at that github address to see how they implement it.
 
 import argparse
+import glob
 import time
 from pathlib import Path
 
@@ -20,20 +21,16 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 
 
 class YoloHelper:
-    def __init__(self, img_size = 160):
+    def __init__(self, img_size = 160, webcam=False):
         # change any of these values to change how you use YOLO
         weights = 'weights/yolov7.pt'
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         trace = True
-        source = 'inference/images'
-        webcam = False #TODO set to True
         self.augment = False
         self.conf_thres = 0.25
         self.iou_thres = 0.45 # 'object confidence threshold'
         self.classes = None # 'filter by class: --class 0, or --class 0 2 3'
         self.agnostic_nms = False # class-agnostic NMS
-
-        print(type(device), device)
 
         # load in information to use throughout the class. Much of rest of init comes from detect.py from YOLOv7
         imgsz = img_size
@@ -62,14 +59,12 @@ class YoloHelper:
         old_img_w = old_img_h = imgsz
         old_img_b = 1
 
-        # Warmup    #TODO implement a warmup for the GPU.
-        # if device.type != 'cpu' and (
-        #         old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
-        #     old_img_b = img.shape[0]
-        #     old_img_h = img.shape[2]
-        #     old_img_w = img.shape[3]
-        #     for i in range(3):
-        #         model(img, augment=opt.augment)[0]
+        # Warmup
+        img = np.zeros((3,img_size, int(img_size * 3/4)))
+        if device.type != 'cpu' and (
+                old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
+            for i in range(3):
+                self.model(img, self.conf_thres, self.iou_thres, classes=self.classes, agnostic=self.agnostic_nms)[0]
 
     def runNpImage_anySize(self, frame):
         """Run YOLO on normal image.
@@ -148,9 +143,27 @@ if __name__ == "__main__":
     cam = cv2.VideoCapture(testImagePath)
     ret,frame = cam.read()
 
+    dataFiles = "/Users/drewsumsion/Downloads/archive/images/" #TODO change this to the path of the dataset desired.
+    allFiles = list(glob.glob(dataFiles + "**.png"))
+
+    multipleImages = True
+
     helper = YoloHelper()
     time_here = []
-    for i in range(0, 1000):
+    if multipleImages:
+        totalImages = len(allFiles)
+    else:
+        totalImages = 1000
+    analyzed = 0
+    for i in range(0, totalImages):
+        if multipleImages:
+            cam = cv2.VideoCapture(allFiles[i])
+            ret,frame = cam.read()
+            if not ret:
+                continue
+            analyzed += 1
+        else:
+            analyzed += 1
         start = time.time()
         det = helper.runNpImage_anySize(frame)
         # helper.drawBBox(det,frame,display=True)
@@ -158,7 +171,9 @@ if __name__ == "__main__":
         time_here.append(end-start)
     time_here = np.array(time_here)
     print("Stats:")
-    print("Median time:", np.median(time_here))
-    print("Mean time:", np.mean(time_here))
-    print("Max time:", np.max(time_here))
-    print("Min time:", np.min(time_here))
+    print("Median time:", np.median(time_here), "seconds")
+    print("Mean time:", np.mean(time_here), "seconds")
+    print("Max time:", np.max(time_here), "seconds")
+    print("Min time:", np.min(time_here), "seconds")
+    print("Total images:", totalImages)
+    print("Total images analyzed:", analyzed)
