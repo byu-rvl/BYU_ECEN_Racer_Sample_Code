@@ -22,20 +22,35 @@ import imutils
 enableDepth = True
 rs = RealSense("/dev/video2", RS_VGA, enableDepth)    # RS_VGA, RS_720P, or RS_1080P
 writer = None
+recording = False
 frameIndex = 0
-print("Now starting CameraTest.py")
-try:
-    while True:
-        (time, rgb, depth, accel, gyro) = rs.getData(enableDepth)
+while True:
+    (time, rgb, depth, accel, gyro) = rs.getData(enableDepth)
 
-        if writer is None:
-            # initialize our video writer
-            writer = cv2.VideoWriter('Video.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (rgb.shape[1], rgb.shape[0]), True)
+    if writer is None and recording is True:
+        # initialize our video writer
+        writer = cv2.VideoWriter('Video.avi', cv2.VideoWriter_fourcc(*'MJPG'), 15, (rgb.shape[1], rgb.shape[0]), True)
 
+    cv2.imshow("RGB", rgb)
+    cv2.imshow("Depth", depth)
+    
+    if recording == True:
+        # write the output frame to disk
         writer.write(rgb)
-except Exception as e:
-    print(e)
-    if writer:
-        writer.release()
-    del rs
-    cv2.destroyAllWindows()
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("r"):     # Start Recording
+        recording = True
+    if key == ord("s"):     # Stop Recording
+        recording = False
+    if key == ord("i"):     # Save image
+        filename = "image" + str(frameIndex) + ".jpg"
+        cv2.imwrite(filename, rgb)
+        frameIndex += 1
+    if key == ord("q"):
+        break
+
+if writer:
+    writer.release()
+del rs
+cv2.destroyAllWindows()
