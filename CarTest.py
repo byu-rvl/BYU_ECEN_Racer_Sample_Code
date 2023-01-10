@@ -17,10 +17,10 @@
         pid: selects to enable (1) or disable PID control, e.g., pid1 to turn on PID.
         KP: sets proportion (between 0 and 1) for PID, e.g., KP0.2 to set KP to 0.2.
         KD: sets differential (between 0 and 1) for PID, e.g., KD0.02 to set KD to 0.02.
-	EXTREMELY IMPORTANT: Be very careful whe controlling the car.
-	NEVER tell it to go full speed. Safely test the car to find a safe range for your particular car
-	and don't go beyond that speed. These cars can go very fast, and there is expensive hardware
-	on them, so don't risk losing control of the car and breaking anything.
+    EXTREMELY IMPORTANT: Be very careful whe controlling the car.
+    NEVER tell it to go full speed. Safely test the car to find a safe range for your particular car
+    and don't go beyond that speed. These cars can go very fast, and there is expensive hardware
+    on them, so don't risk losing control of the car and breaking anything.
 **************************************
 '''
 
@@ -38,6 +38,9 @@ while True:
     elif command == 'd':
         speed = input("Enter a drive speed (-3.0 ~ 3.0):\n")
         Car.drive(float(speed))
+    elif command == 'm':
+        melody = input("Enter a number (0 ~ 8):\n")
+        Car.music(int(melody))
     elif command == 'z':
         pwm = input("Enter a PWM value (~1500):\n")
         Car.zero(int(pwm))

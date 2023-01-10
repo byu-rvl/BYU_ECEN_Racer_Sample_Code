@@ -1,7 +1,7 @@
-# CarControl.py
+# Android.py
 '''
 ******* Controlling The Car Through Arduino **********
-    By DJ Lee on February 5, 2022
+    By DJ Lee on November 29, 2022
 
     Use $ ls /dev/tty* to list all ports connected to the computer and enter it below to establish serial communication.
     Turn off the power on the USB hub that is connected to the Arduino board.
@@ -49,6 +49,10 @@ class Arduino:
         command = "drive" + str(speed) + "\n"
         self.SerialPort.write(command.encode())
 
+    def music(self, melody):       # play music.  There are currently 9 (0~8) to choose from.
+        command = "music" + str(melody) + "\n"
+        self.SerialPort.write(command.encode())
+
     def zero(self, pwm):          # set PWM value when the car goes straight (0 degree)
         command = "zero" + str(pwm) + "\n"
         self.SerialPort.write(command.encode())
@@ -59,7 +63,7 @@ class Arduino:
         return(self.SerialPort.readline())
 
     def pid(self, flag):         # read encoder count back from Arduino
-        command = "pidtry:" + str(flag) + "\n"
+        command = "pid:" + str(flag) + "\n"
         self.SerialPort.write(command.encode())
 
     def kp(self, p):         # read encoder count back from Arduino
