@@ -12,6 +12,7 @@ Simulator files:
 - ./simulation
 
 Files for Yolo (for Yolo milestones)
+- The majority of these files come from: https://github.com/WongKinYiu/yolov7
 - ./cfg
 - ./data
 - ./deploy/triton-inference-server
