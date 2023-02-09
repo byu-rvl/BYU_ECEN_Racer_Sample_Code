@@ -37,4 +37,7 @@ The following indivuals contributed to the below code:
 - Shad Torrie
 - Andrew (Drew) Sumsion
 
+For the Jetson TX2 Image to Download use the link to box (The image will be available until April 2025):
+- https://byu.box.com/s/674s64h9hrjq691ylhjlqb2u3iro98kn
+
 If you use our code please cite us as follows:
