@@ -26,3 +26,15 @@ Files for Yolo (for Yolo milestones)
 - ./utils
 - ./weights
 - YoloHelper.py
+
+The following files pertain to various Arduino Nano codes:
+- MonsterTruck.ino
+- StopLight.ino
+
+The following indivuals contributed to the below code:
+- Dr. DJ Lee
+- Joshua Broekhuijsen
+- Shad Torrie
+- Andrew (Drew) Sumsion
+
+If you use our code please cite us as follows:
